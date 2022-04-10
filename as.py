@@ -39,7 +39,7 @@ def input_values():
     C = float(input())
 
 
-def calculate(u, C):
+def calculate(u, C, M, N):
 
     """
     Calculates displacement of the wave
@@ -86,11 +86,12 @@ def graph(u, u1, dx, dt, M, N):
         y = u[i]
         y1 = u1[i]
         fig, axs = plt.subplots()
-        axs.plot(x, y,'-', x, y1, '--')
+        #axs.plot(x, y,'-', x, y1, '--')
+        axs.plot(x, y)
         plt.ylim(-0.1, 0.1)
         axs.set_title("t = " + '%.4f'%t[i])
         plt.grid()
-        fig.savefig(str(i) + ".png")
+        fig.savefig("anim/" + str(i) + ".png")
 
 def snapshots(u, dx, M):
     k = 1
@@ -131,8 +132,8 @@ def test(u, A, L, v, dt, dx, N, M):
     Returns:
         u (np.array): Filled matrix of displacement
     """
-    for n in range(0, N-1):
-        for m in range(0, M-1):
+    for n in range(1, N-1):
+        for m in range(1, M-1):
             x = m*dx
             t = n*dt
             u[n, m] = (A * math.sin((math.pi * x)/L) 
@@ -145,7 +146,7 @@ def test_1(u, dx, dt, L, N, M):
         for m in range(0, M-1):
             x = m*dx
             t = n*dt
-            u[n, m] = x * (L - x) * (1 + t/2)
+            u[n, m] = x * (L - x) * math.sin(t)
     return(u)
 
 def main():
@@ -174,20 +175,22 @@ def main():
     u = np.zeros((N, M), dtype=np.float) # Displacement function
     u1 = np.zeros((N, M), dtype=np.float)
 
+
     for i in range(M):                   # Init conditions
         u[0, i] = i/100
         u1[0, i] = i/100
-    U = calculate(u, C)
+    U = calculate(u, C, M, N)
 
     A = np.amax(U)                       # Amplitude of the wave
 
 
     #U1 = test(u1, A, L, v, dt, dx, N, M)
     #U1[0, M-1] = 0
-    #for n in range(N):
-    #    u[n, 0] = 0
+   
 
     U1 = test_1(u1, dx, dt, L, N, M)
+    for n in range(N):
+        u1[n, 0] = 0
 
     graph(U, U1, dx, dt, M, N)
 
