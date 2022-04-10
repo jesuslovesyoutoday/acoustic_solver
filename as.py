@@ -86,9 +86,9 @@ def graph(u, u1, dx, dt, M, N):
         y = u[i]
         y1 = u1[i]
         fig, axs = plt.subplots()
-        #axs.plot(x, y,'-', x, y1, '--')
+        axs.plot(x, y,'-', x, y1, '--')
         axs.plot(x, y)
-        plt.ylim(-0.1, 0.1)
+        plt.ylim(-np.amax(u), np.amax(u))
         axs.set_title("t = " + '%.4f'%t[i])
         plt.grid()
         fig.savefig("anim/" + str(i) + ".png")
@@ -177,20 +177,21 @@ def main():
 
 
     for i in range(M):                   # Init conditions
-        u[0, i] = i/100
-        u1[0, i] = i/100
+        u[0, i] = math.sin(dx*i*math.pi/L)
+        #u[0, i] = i/100
+        #u1[0, i] = i/100
     U = calculate(u, C, M, N)
 
     A = np.amax(U)                       # Amplitude of the wave
 
 
-    #U1 = test(u1, A, L, v, dt, dx, N, M)
+    U1 = test(u1, A, L, v, dt, dx, N, M)
     #U1[0, M-1] = 0
    
 
-    U1 = test_1(u1, dx, dt, L, N, M)
-    for n in range(N):
-        u1[n, 0] = 0
+    #U1 = test_1(u1, dx, dt, L, N, M)
+    #for n in range(N):
+    #    u1[n, 0] = 0
 
     graph(U, U1, dx, dt, M, N)
 
