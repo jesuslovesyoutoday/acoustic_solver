@@ -1,18 +1,16 @@
+import vtk
+import math
 import numpy as np
 from matplotlib import pyplot as plt
 
 
-#TODO: проверки вводимых значений, значения по умолчанию
-
 def init_print(string):
     
     """
-
     Prints given string in the box
     
     Parameters:
         string (str): A string to print
-
     """
     print("\n")
     print("##############################################")
@@ -22,11 +20,28 @@ def init_print(string):
     print("##############################################")
     print("\n")
 
+def input_values():
+
+    init_print("#            Enter Freuency: (Hz)            #")
+    f = float(input())
+
+    init_print("#         Enter period of time: (s)          #")
+    T = float(input())
+
+    init_print("#          Enter path length: (m)            #")
+    L = float(input())
+
+    init_print("#            Enter time step: (s)            #")
+    dt = float(input())
+
+    # C <= 1 
+    init_print("#                  Enter CFL:                #")
+    C = float(input())
+
 
 def calculate(u, C):
 
     """
-
     Calculates displacement of the wave
 
     Parameters:
@@ -35,7 +50,6 @@ def calculate(u, C):
 
     Returns:
         u (np.array): Matrix of displacement
-
     """
     # Calculating n = 1
     for m in range(1, M-1):
@@ -49,72 +63,135 @@ def calculate(u, C):
             + C**2 * (u[n, m+1] - 2*u[n, m] + u[n,m-1]))
     return(u)
 
-def graph(u, dx):
+def graph(u, u1, dx, dt, M, N):
     
     """
-
     Draws displacement of the wave
 
     Parameters:
         u (np.array): Matrix of displacement
         dx   (float): Mesh step
-    
+        dt   (float): Time step
+        M      (int): Amount of space steps
+        N      (int): Amount of time steps
     """
     x = []
+    t = []
     for i in range(M):
         x.append(i*dx)
+    for i in range(N):
+        t.append(i*dt)
     i = 0
-    for frame in u:
-        y = frame
+    for i in range(N):
+        y = u[i]
+        y1 = u1[i]
         fig, axs = plt.subplots()
-        axs.plot(x, y)
+        axs.plot(x, y,'-', x, y1, '--')
         plt.ylim(-0.1, 0.1)
+        axs.set_title("t = " + '%.4f'%t[i])
         plt.grid()
         fig.savefig(str(i) + ".png")
-        i += 1
+
+def snapshots(u, dx, M):
+    k = 1
+    structuredGrid = vtk.vtkStructuredGrid()
+    points = vtk.vtkPoints()
+    N = M
+    du = np.amax(u)/N
+    for n in range(N):
+        for m in range(M):
+            points.InsertNextPoint(dx * m, dx*n, 0)
+    structuredGrid.SetDimensions(M, N, 1)
+    structuredGrid.SetPoints(points)
+    writer = vtk.vtkXMLStructuredGridWriter()
+    writer.SetInputDataObject(structuredGrid)
+    writer.SetFileName("wave-step-" + str(i*k) + ".vts")
+    writer.Write()
+"""        
+    for step in u:
+        points = vtk.vtkPoints()
+        for i in range(len(step)):
+            points.InsertNextPoint(dx * i, step[i], 0)
+"""
+
+def test(u, A, L, v, dt, dx, N, M):
     
+    """
+    Calculates analytical solution (with no initial
+    conditions)
 
-init_print("#            Enter Freuency: (Hz)            #")
-f = float(input())
+    Parameters:
+        u (np.array): Empty matrix of displacement
+        A    (float): Amplitude of wave
+        L    (float): Path's length
+        v    (float): Phase velocity
+        dt   (float): Time step
+        dx   (float): Space step
+    
+    Returns:
+        u (np.array): Filled matrix of displacement
+    """
+    for n in range(0, N-1):
+        for m in range(0, M-1):
+            x = m*dx
+            t = n*dt
+            u[n, m] = (A * math.sin((math.pi * x)/L) 
+                    * math.cos((math.pi * v * t)/L))
+    return(u)
 
-init_print("#         Enter period of time: (s)          #")
-T = float(input())
 
-init_print("#          Enter path length: (m)            #")
-L = float(input())
+def test_1(u, dx, dt, L, N, M):
+    for n in range(0, N-1):
+        for m in range(0, M-1):
+            x = m*dx
+            t = n*dt
+            u[n, m] = x * (L - x) * (1 + t/2)
+    return(u)
 
-init_print("#            Enter time step: (s)            #")
-dt = float(input())
+def main():
 
-# C <= 1 - ?
-init_print("#                  Enter CFL:                #")
-C = float(input())
+    #input_values()
 
-n = 1
-c = 343
+    # Default values
+    f = 1000        # Frequency
+    T = 20          # Time period
+    L = 3430        # Path length
+    dt = 0.1        # Time step
+    C = 0.1         # CFL < 1
+    n = 1           # Refractive index
+    c = 343         # Sound speed
 
-# Wave length
-l = c/(n*f)
+    l = c/(n*f)     # Wave length
 
-# Phase velocity
-v = l*f
+    v = l*f         # Phase velocity
 
-# Mesh step
-dx = (v*dt)/C
+    dx = (v*dt)/C   # Mesh step
 
-# Amount of time steps
-N = int(T/dt)
+    N = int(T/dt)   # Amount of time steps
 
-# Amount of space steps
-M = int(L/dx)
+    M = int(L/dx)   # Amount of space steps
 
-# Displacement function
-u = np.zeros((N, M), dtype=np.float)
+    u = np.zeros((N, M), dtype=np.float) # Displacement function
+    u1 = np.zeros((N, M), dtype=np.float)
 
-# Init conditions
-for i in range(M):
-    u[0, i] = i/100
+    for i in range(M):                   # Init conditions
+        u[0, i] = i/100
+        u1[0, i] = i/100
+    U = calculate(u, C)
 
-U = calculate(u, C)
-print(U)
-graph(U, dx)
+    A = np.amax(U)                       # Amplitude of the wave
+
+
+    #U1 = test(u1, A, L, v, dt, dx, N, M)
+    #U1[0, M-1] = 0
+    #for n in range(N):
+    #    u[n, 0] = 0
+
+    U1 = test_1(u1, dx, dt, L, N, M)
+
+    graph(U, U1, dx, dt, M, N)
+
+    #snapshots(U, dx, M)
+    
+if __name__ == '__main__':
+    main()
