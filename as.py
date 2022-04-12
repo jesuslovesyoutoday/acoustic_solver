@@ -82,38 +82,38 @@ def graph(u, u1, dx, dt, M, N):
     for i in range(N):
         t.append(i*dt)
     i = 0
-    for i in range(N):
+    for i in range(0, N, 3):
         y = u[i]
         y1 = u1[i]
         fig, axs = plt.subplots()
         axs.plot(x, y,'-', x, y1, '--')
-        axs.plot(x, y)
+        #axs.plot(x, y)
         plt.ylim(-np.amax(u), np.amax(u))
         axs.set_title("t = " + '%.4f'%t[i])
         plt.grid()
         fig.savefig("anim/" + str(i) + ".png")
 
-def snapshots(u, dx, M):
+def snapshots(u, dx, M, N):
     k = 1
     structuredGrid = vtk.vtkStructuredGrid()
     points = vtk.vtkPoints()
-    N = M
+    #U = vtk.vtkDoubleArray()
+    #U.SetName("u")
+    points_1 = vtk.vtkPoints()
     du = np.amax(u)/N
+
     for n in range(N):
         for m in range(M):
-            points.InsertNextPoint(dx * m, dx*n, 0)
-    structuredGrid.SetDimensions(M, N, 1)
-    structuredGrid.SetPoints(points)
-    writer = vtk.vtkXMLStructuredGridWriter()
-    writer.SetInputDataObject(structuredGrid)
-    writer.SetFileName("wave-step-" + str(i*k) + ".vts")
-    writer.Write()
-"""        
-    for step in u:
-        points = vtk.vtkPoints()
-        for i in range(len(step)):
-            points.InsertNextPoint(dx * i, step[i], 0)
-"""
+            points.InsertNextPoint(dx * m, du * n, 0)
+            points_1.InsertNextPoint(dx * m, u[n, m], 0)
+            #U.InsertNextValue(u[n, m] * 1000)
+        structuredGrid.SetDimensions(N, M, 1)
+        structuredGrid.SetPoints(points)
+        #structuredGrid.GetPointData().AddArray(U)
+        writer = vtk.vtkXMLStructuredGridWriter()
+        writer.SetInputDataObject(structuredGrid)
+        writer.SetFileName("wave-step-" + str(n) + ".vts")
+        writer.Write()
 
 def test(u, A, L, v, dt, dx, N, M):
     
@@ -155,10 +155,10 @@ def main():
 
     # Default values
     f = 1000        # Frequency
-    T = 20          # Time period
+    T = 10          # Time period
     L = 3430        # Path length
-    dt = 0.1        # Time step
-    C = 0.1         # CFL < 1
+    dt = 0.01        # Time step
+    C = 0.1           # CFL < 1
     n = 1           # Refractive index
     c = 343         # Sound speed
 
@@ -186,7 +186,7 @@ def main():
 
 
     U1 = test(u1, A, L, v, dt, dx, N, M)
-    #U1[0, M-1] = 0
+    U1[0, M-1] = 0
    
 
     #U1 = test_1(u1, dx, dt, L, N, M)
@@ -195,7 +195,7 @@ def main():
 
     graph(U, U1, dx, dt, M, N)
 
-    #snapshots(U, dx, M)
+    #snapshots(U, dx, M, N)
     
 if __name__ == '__main__':
     main()
