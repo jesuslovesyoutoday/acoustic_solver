@@ -82,7 +82,7 @@ def graph(u, u1, dx, dt, M, N):
     for i in range(N):
         t.append(i*dt)
     i = 0
-    for i in range(0, N, 3):
+    for i in range(0, N):
         y = u[i]
         y1 = u1[i]
         fig, axs = plt.subplots()
@@ -93,27 +93,26 @@ def graph(u, u1, dx, dt, M, N):
         plt.grid()
         fig.savefig("anim/" + str(i) + ".png")
 
-def snapshots(u, dx, M, N):
-    k = 1
+def snapshots(u, dx, dt, M, N):
+
     structuredGrid = vtk.vtkStructuredGrid()
     points = vtk.vtkPoints()
-    #U = vtk.vtkDoubleArray()
-    #U.SetName("u")
+    U = vtk.vtkDoubleArray()
+    U.SetName("u")
     points_1 = vtk.vtkPoints()
-    du = np.amax(u)/N
-
-    for n in range(N):
-        for m in range(M):
-            points.InsertNextPoint(dx * m, du * n, 0)
-            points_1.InsertNextPoint(dx * m, u[n, m], 0)
-            #U.InsertNextValue(u[n, m] * 1000)
-        structuredGrid.SetDimensions(N, M, 1)
-        structuredGrid.SetPoints(points)
-        #structuredGrid.GetPointData().AddArray(U)
-        writer = vtk.vtkXMLStructuredGridWriter()
-        writer.SetInputDataObject(structuredGrid)
-        writer.SetFileName("wave-step-" + str(n) + ".vts")
-        writer.Write()
+    grid = np.mgrid[0:M, 0:N]
+    
+    for m in range(M):
+        for n in range(N):
+            points.InsertNextPoint(grid[0][m, n], grid[1][m, n], 0)
+            U.InsertNextValue(u[n, m])
+    structuredGrid.SetDimensions(M, M, 1)
+    structuredGrid.SetPoints(points)
+    structuredGrid.GetPointData().AddArray(U)
+    writer = vtk.vtkXMLStructuredGridWriter()
+    writer.SetInputDataObject(structuredGrid)
+    writer.SetFileName("wave.vts")
+    writer.Write()
 
 def test(u, A, L, v, dt, dx, N, M):
     
@@ -155,9 +154,9 @@ def main():
 
     # Default values
     f = 1000        # Frequency
-    T = 10          # Time period
-    L = 3430        # Path length
-    dt = 0.01        # Time step
+    T = 20          # Time period
+    L = 34300       # Path length
+    dt = 0.1        # Time step
     C = 0.1           # CFL < 1
     n = 1           # Refractive index
     c = 343         # Sound speed
@@ -178,8 +177,6 @@ def main():
 
     for i in range(M):                   # Init conditions
         u[0, i] = math.sin(dx*i*math.pi/L)
-        #u[0, i] = i/100
-        #u1[0, i] = i/100
     U = calculate(u, C, M, N)
 
     A = np.amax(U)                       # Amplitude of the wave
@@ -187,15 +184,10 @@ def main():
 
     U1 = test(u1, A, L, v, dt, dx, N, M)
     U1[0, M-1] = 0
-   
-
-    #U1 = test_1(u1, dx, dt, L, N, M)
-    #for n in range(N):
-    #    u1[n, 0] = 0
 
     graph(U, U1, dx, dt, M, N)
 
-    #snapshots(U, dx, M, N)
+    snapshots(U, dx, dt, M, N)
     
 if __name__ == '__main__':
     main()
