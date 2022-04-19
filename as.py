@@ -37,31 +37,117 @@ def input_values():
     # C <= 1 
     init_print("#                  Enter CFL:                #")
     C = float(input())
+    
+class Wave():
+    
+    def __init__(self, f, T, L, dt, C, n):
+    
+        """
+        Initiation of parameters of the wave
+        
+        Parameters:
+            f  (float) - frequency (Hz)
+            T  (float) - time period (s)
+            L  (float) - path's length (m)
+            dt (float) - time step (s)
+            C  (float) - courant number (<1)
+            n  (float) - refractive index
+        """
+    
+        self.f  = f
+        self.T  = T
+        self.L  = L
+        self.dt = dt
+        self.C  = C
+        self.n  = n
+        self.c  = 343             # Sound speed
 
+        self.l  = self.c/(n*f)    # Wave length
 
-def calculate(u, C, M, N):
+        self.v  = self.c/n        # Phase velocity
 
-    """
-    Calculates displacement of the wave
+        self.dx = (self.v*dt)/C   # Mesh step
 
-    Parameters:
-        u (np.array): Matrix with initial conditions
-        C    (float): Courant number (C < 1)
+        self.N  = int(T/dt)       # Amount of time steps
 
-    Returns:
-        u (np.array): Matrix of displacement
-    """
-    # Calculating n = 1
-    for m in range(1, M-1):
-        u[1, m] = (u[0, m] 
-        - 0.5 * C**2 * (u[0, m+1] - 2*u[0, m] + u[0, m-1]))
+        self.M  = int(L/self.dx)  # Amount of space steps
+        
+        # Displacement function
+        self.u  = np.zeros((self.N, self.M), dtype=np.float)
+        # Displacement function for analitical solution  
+        self.u1 = np.zeros((self.N, self.M), dtype=np.float)  
+                                                              
+        self.A  = np.amax(self.u) # Amplitude of the wave
+        
+        
+    def init_conditions(self):
+        
+        """
+        Sets initial conditions of the wave
+            
+        """
+        for i in range(self.M):
+            self.u[0, i] = math.sin(self.dx*i*math.pi/self.L)
+                
+                                                    
+    def calculate(self):
+        
+        """
+        Calculates displacement of the wave
+            
+        """
+            
+        # Calculating n = 1
+        for m in range(1, self.M-1):
+            self.u[1, m] = (self.u[0, m] 
+            - 0.5 * self.C**2 * (self.u[0, m+1] 
+            - 2*self.u[0, m] + self.u[0, m-1]))
 
-    # Calculating n = 2,...,N 
-    for n in range(1, N-1):
-        for m in range(1, M-1):
-            u[n+1, m] = (-u[n-1, m] +2*u[n, m] 
-            + C**2 * (u[n, m+1] - 2*u[n, m] + u[n,m-1]))
-    return(u)
+        # Calculating n = 2,...,N 
+        for n in range(1, self.N-1):
+            for m in range(1, self.M-1):
+                self.u[n+1, m] = (-self.u[n-1, m] +2*self.u[n, m] 
+              + self.C**2 * (self.u[n, m+1] - 2*self.u[n, m] 
+              + self.u[n,m-1]))
+                    
+    def snapshots(self, file_name):
+
+        self.structuredGrid = vtk.vtkStructuredGrid()
+        self.points = vtk.vtkPoints()
+        self.U = vtk.vtkDoubleArray()
+        self.U.SetNumberOfComponents(3)
+        self.U.SetName("u")
+        self.grid = np.mgrid[0:self.M, 0:self.N]
+            
+        for m in range(self.M):
+            for n in range(self.N):
+                self.points.InsertNextPoint(self.grid[0][m, n], 
+                                            self.grid[1][m, n], 0)
+                self.U.InsertNextTuple((0, self.u[n,m], 0))
+        self.structuredGrid.SetDimensions(self.M, self.N, 1)
+        self.structuredGrid.SetPoints(self.points)
+        self.structuredGrid.GetPointData().AddArray(self.U)
+        writer = vtk.vtkXMLStructuredGridWriter()
+        writer.SetInputDataObject(self.structuredGrid)
+        writer.SetFileName(file_name)
+        writer.Write()
+            
+    def test(self):
+    
+        """
+        Calculates analytical solution (with no initial
+        conditions)
+            
+        """
+        self.A  = np.amax(self.u)
+        for n in range(1, self.N-1):
+            for m in range(1, self.M-1):
+                x = m*self.dx
+                t = n*self.dt
+                self.u1[n, m] = (self.A * math.sin((math.pi * x)/self.L) 
+                        * math.cos((2 * math.pi * self.f * t)/self.L))
+        self.u1[0, self.M - 1] = 0                  
+
 
 def graph(u, u1, dx, dt, M, N):
     
@@ -69,7 +155,8 @@ def graph(u, u1, dx, dt, M, N):
     Draws displacement of the wave
 
     Parameters:
-        u (np.array): Matrix of displacement
+        u (np.array): First matrix
+        u1(np.array): Second matrix
         dx   (float): Mesh step
         dt   (float): Time step
         M      (int): Amount of space steps
@@ -82,112 +169,62 @@ def graph(u, u1, dx, dt, M, N):
     for i in range(N):
         t.append(i*dt)
     i = 0
-    for i in range(0, N):
+    for i in range(0, N, 3):
         y = u[i]
-        y1 = u1[i]
+        y1 = u1[i, 0 : len(x)]
         fig, axs = plt.subplots()
         axs.plot(x, y,'-', x, y1, '--')
         #axs.plot(x, y)
         plt.ylim(-np.amax(u), np.amax(u))
         axs.set_title("t = " + '%.4f'%t[i])
         plt.grid()
-        fig.savefig("anim/" + str(i) + ".png")
-
-def snapshots(u, dx, dt, M, N):
-
-    structuredGrid = vtk.vtkStructuredGrid()
-    points = vtk.vtkPoints()
-    U = vtk.vtkDoubleArray()
-    U.SetName("u")
-    points_1 = vtk.vtkPoints()
-    grid = np.mgrid[0:M, 0:N]
-    
-    for m in range(M):
-        for n in range(N):
-            points.InsertNextPoint(grid[0][m, n], grid[1][m, n], 0)
-            U.InsertNextValue(u[n, m])
-    structuredGrid.SetDimensions(M, M, 1)
-    structuredGrid.SetPoints(points)
-    structuredGrid.GetPointData().AddArray(U)
-    writer = vtk.vtkXMLStructuredGridWriter()
-    writer.SetInputDataObject(structuredGrid)
-    writer.SetFileName("wave.vts")
-    writer.Write()
-
-def test(u, A, L, v, dt, dx, N, M):
-    
-    """
-    Calculates analytical solution (with no initial
-    conditions)
-
-    Parameters:
-        u (np.array): Empty matrix of displacement
-        A    (float): Amplitude of wave
-        L    (float): Path's length
-        v    (float): Phase velocity
-        dt   (float): Time step
-        dx   (float): Space step
-    
-    Returns:
-        u (np.array): Filled matrix of displacement
-    """
-    for n in range(1, N-1):
-        for m in range(1, M-1):
-            x = m*dx
-            t = n*dt
-            u[n, m] = (A * math.sin((math.pi * x)/L) 
-                    * math.cos((math.pi * v * t)/L))
-    return(u)
-
-
-def test_1(u, dx, dt, L, N, M):
-    for n in range(0, N-1):
-        for m in range(0, M-1):
-            x = m*dx
-            t = n*dt
-            u[n, m] = x * (L - x) * math.sin(t)
-    return(u)
+        fig.savefig("anim_new/" + str(i) + ".png")                    
+                    
 
 def main():
 
     #input_values()
 
     # Default values
-    f = 1000        # Frequency
-    T = 20          # Time period
-    L = 34300       # Path length
-    dt = 0.1        # Time step
-    C = 0.1           # CFL < 1
-    n = 1           # Refractive index
-    c = 343         # Sound speed
+    f = 2000        # Frequency
+    T = 10          # Time period
+    L = 3430        # Path's length
+    dt = 0.01       # Time step
+    C = 0.1         # CFL < 1
+    """n = 1           # Refractive index
 
-    l = c/(n*f)     # Wave length
+    u_1 = Wave(f, T, L, dt, C, n)
 
-    v = l*f         # Phase velocity
-
-    dx = (v*dt)/C   # Mesh step
-
-    N = int(T/dt)   # Amount of time steps
-
-    M = int(L/dx)   # Amount of space steps
-
-    u = np.zeros((N, M), dtype=np.float) # Displacement function
-    u1 = np.zeros((N, M), dtype=np.float)
-
-
-    for i in range(M):                   # Init conditions
-        u[0, i] = math.sin(dx*i*math.pi/L)
-    U = calculate(u, C, M, N)
-
-    A = np.amax(U)                       # Amplitude of the wave
-
-
-    U1 = test(u1, A, L, v, dt, dx, N, M)
-    U1[0, M-1] = 0
-
-    graph(U, U1, dx, dt, M, N)
-
-    snapshots(U, dx, dt, M, N)
+    u_1.init_conditions()
+    u_1.calculate()
+    u_1.snapshots("wave_1.vts")
+    u_1.test()"""
     
+    n = 1.5
+    u_2 = Wave(f, T, L, dt, C, n)
+
+    u_2.init_conditions()
+    u_2.calculate()
+    u_2.snapshots("wave_n2.vts")
+    u_2.test()
+    
+    #graph(u_1.u, u_2.u, u_1.dx, dt, u_1.M, u_1.N)
+
 if __name__ == '__main__':
-    main()
+    main()                  
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
