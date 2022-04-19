@@ -59,9 +59,10 @@ class Wave():
         self.L  = L
         self.dt = dt
         self.C  = C
-        self.n  = n
+        self.n0  = n
+        
         self.c  = 343             # Sound speed
-
+        
         self.l  = self.c/(n*f)    # Wave length
 
         self.v  = self.c/n        # Phase velocity
@@ -72,6 +73,9 @@ class Wave():
 
         self.M  = int(L/self.dx)  # Amount of space steps
         
+        # Refractive index
+        self.n = np.zeros((self.N, self.M), dtype=np.float)
+        
         # Displacement function
         self.u  = np.zeros((self.N, self.M), dtype=np.float)
         # Displacement function for analitical solution  
@@ -79,6 +83,15 @@ class Wave():
                                                               
         self.A  = np.amax(self.u) # Amplitude of the wave
         
+    def set_n(self):
+    
+        """
+        Specifies the distribution of the refractive index
+        
+        """
+        for n in range(self.N):
+            for m in range(self.M):
+                self.n[n, m] = 1 + m/100  
         
     def init_conditions(self):
         
@@ -145,7 +158,7 @@ class Wave():
                 x = m*self.dx
                 t = n*self.dt
                 self.u1[n, m] = (self.A * math.sin((math.pi * x)/self.L) 
-                        * math.cos((2 * math.pi * self.f * t)/self.L))
+                        * math.cos((math.pi * self.v * t)/self.L))
         self.u1[0, self.M - 1] = 0                  
 
 
@@ -169,9 +182,10 @@ def graph(u, u1, dx, dt, M, N):
     for i in range(N):
         t.append(i*dt)
     i = 0
-    for i in range(0, N, 3):
+    for i in range(0, N, 30):
         y = u[i]
-        y1 = u1[i, 0 : len(x)]
+        #y1 = u1[i, 0 : len(x)]
+        y1 = u1[i]
         fig, axs = plt.subplots()
         axs.plot(x, y,'-', x, y1, '--')
         #axs.plot(x, y)
@@ -189,7 +203,7 @@ def main():
     f = 2000        # Frequency
     T = 10          # Time period
     L = 3430        # Path's length
-    dt = 0.01       # Time step
+    dt = 0.001       # Time step
     C = 0.1         # CFL < 1
     """n = 1           # Refractive index
 
@@ -200,15 +214,16 @@ def main():
     u_1.snapshots("wave_1.vts")
     u_1.test()"""
     
-    n = 1.5
+    n = 1
     u_2 = Wave(f, T, L, dt, C, n)
 
     u_2.init_conditions()
     u_2.calculate()
-    u_2.snapshots("wave_n2.vts")
     u_2.test()
+    #u_2.snapshots("wave_n1_finer_mesh.vts")
     
-    #graph(u_1.u, u_2.u, u_1.dx, dt, u_1.M, u_1.N)
+    
+    graph(u_2.u, u_2.u1, u_2.dx, dt, u_2.M, u_2.N)
 
 if __name__ == '__main__':
     main()                  
